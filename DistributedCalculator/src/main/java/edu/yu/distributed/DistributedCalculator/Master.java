@@ -51,7 +51,7 @@ import org.apache.zookeeper.KeeperException.Code;
 import edu.yu.distributed.DistributedCalculator.recovery.RecoveredAssignments;
 import edu.yu.distributed.DistributedCalculator.recovery.RecoveredAssignments.RecoveryCallback;
 import org.apache.zookeeper.data.Stat;
-
+import org.apache.zookeeper.server.Request;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -804,14 +804,14 @@ public class Master implements Watcher, Closeable {
     	
     	String request = new String(data);
         
-        int firstSpace, secondSpace, space;
+        int firstSpace = request.indexOf(" "), secondSpace;
         String key, designatedWorker, assignmentPath;
         
         RequestType type = getRequestType(request);
         
     	switch(type) {
     	case INSERT:
-    		firstSpace = request.indexOf(" ");
+    		
     		secondSpace = request.lastIndexOf(" ");
     		key = request.substring(firstSpace+1, secondSpace);
     		
@@ -831,8 +831,8 @@ public class Master implements Watcher, Closeable {
     		
     	case DELETE:
     	case RETRIEVE:
-    		space = request.indexOf(" ");
-    		key = request.substring(space + 1);
+    		
+    		key = request.substring(firstSpace + 1);
     		designatedWorker = workersCache.getWorker(key);
     		
     		assignmentPath = "/assign/" + 
@@ -849,7 +849,57 @@ public class Master implements Watcher, Closeable {
     		break;
     		
     	case CALCULATE:
+    		secondSpace = request.indexOf(" ", firstSpace + 1);
+    		String operator = request.substring(firstSpace+1, secondSpace);
+    		String operands = request.substring(secondSpace + 1);
+    		String[] opList = operands.split(" ");
     		
+    		ArrayList<ArrayList<String>> similars = new ArrayList<ArrayList<String>>(); 
+    		similars.add(new ArrayList<String>());
+    		int currentL = 0;
+    		int current = 1;
+    		similars.get(0).add(opList[0]);
+    		String previousWorker = workersCache.getWorker(similars.get(0).get(0));
+    		String currentWorker;
+    		
+    		for(int i = 1; i<opList.length; i++) {//at the end of this loop, similars will contain lists grouping all operand keys contained in same workers
+    			currentWorker = workersCache.getWorker(opList[i]);
+    			
+    			if(previousWorker.equals(currentWorker)) //the worker which contained the previous value also contains this value, add to previous list
+    				similars.get(currentL).add(opList[i]);
+    			else {//they are contained in different workers, start next list
+    				currentL++;
+    				similars.add(new ArrayList<String>());
+    				similars.get(currentL).add(opList[i]);
+    				previousWorker = currentWorker;
+    			}
+    			
+    			
+    		}
+    		
+    		tasksCache.associateTask((String) ctx, request, currentL);//create an association from the task name to an object which will hold solutions until they are ready to be combined
+    		
+    		try {
+				zk.create("/completed/" + (String) ctx,"parts".getBytes() , Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);//create the node to store eventual answers to parts
+			} catch (KeeperException | InterruptedException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+    		
+    		String assignmentData;
+    		
+    		int counter = 1;
+    		for(ArrayList<String> A : similars) {//assign all parts of the request to corresponding workers, with added counter for order, like TCP
+    			assignmentData = "calculate " + counter + " " + operator + " " + String.join(" ", A);
+    			designatedWorker = workersCache.getWorker(A.get(0));
+    			assignmentPath = "/assign/" + 
+                        designatedWorker + 
+                        "/" + 
+                        (String) ctx;
+    			createAssignment(assignmentPath, assignmentData.getBytes());
+    			counter++;
+    		}
+    			
     		
     		
     		break;
@@ -909,13 +959,13 @@ public class Master implements Watcher, Closeable {
         public void process(WatchedEvent e) {
             if(e.getType() == EventType.NodeChildrenChanged) {
                 
-                getResultChildren();
+                getResultChildren(e.getPath());
             }
         }
     };
     
-    void getResultChildren() {
-    	zk.getChildren("/completed", taskResultWatcher, resultChildrenCallback, null);
+    void getResultChildren(String path) {
+    	zk.getChildren(path, taskResultWatcher, resultChildrenCallback, null);
     }
     
     ChildrenCallback resultChildrenCallback = new ChildrenCallback() {
@@ -923,7 +973,7 @@ public class Master implements Watcher, Closeable {
 		public void processResult(int rc, String path, Object ctx, List<String> children) {
 			switch(Code.get(rc)) { 
             case CONNECTIONLOSS:
-                getResultChildren();
+                getResultChildren(path);
                 
                 break;
             case OK:
@@ -954,40 +1004,48 @@ public class Master implements Watcher, Closeable {
 	            break;
 	        case OK:
 	        	String result = new String(data);
-	            int firstSpace = result.indexOf(" ");
-	            int lastSpace = result.lastIndexOf(" ");
-	            String taskName = result.substring(0, firstSpace);
-	            String task = result.substring(firstSpace+1, lastSpace);
-	            String solution = result.substring(lastSpace+1);
-	            
-	            
-	            LOG.info("Task " + task  + " has been resolved. Solution: " + solution);
-	            
-	            System.out.println("Task " + task  + " has been resolved. Solution: " + solution);
-	            
-	            String solutionPath = "/status/" + taskName;
-	            
-	            try {
-	            	
-					zk.create(solutionPath, solution.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
-					
-				} catch (KeeperException | InterruptedException e) {
-					
-					e.printStackTrace();
-				}
-	            
-	            LOG.info("Task " + task + " solution has been posted to Client");
-	            
-	            try {
-					zk.delete(path, -1);
-				} catch (InterruptedException | KeeperException e) {
-					
-					e.printStackTrace();
-				}
-	            
-	            LOG.info("znode " + (String) ctx + " successfully deleted, as worker has completed it");
-	            
-	            
+	        	int firstSpace = result.indexOf(" ");
+	        	if(result.substring(0, 5).equals("parts"))//this is a multi-part answer that needs to be combined
+	        		getResultChildren(path);
+	        	else if(result.length() > 11 && result.substring(firstSpace+1,firstSpace + 10).equals("calculate")) {//this is one part of a multi part answer
+	        		LOG.info("Part of calculation request completed");
+	        		
+	        	}
+	        	else {//this is a full answer, ie, resulting from a put, get, or delete
+	        		
+		            int lastSpace = result.lastIndexOf(" ");
+		            String taskName = result.substring(0, firstSpace);
+		            String task = result.substring(firstSpace+1, lastSpace);
+		            String solution = result.substring(lastSpace+1);
+		            
+		            
+		            LOG.info("Task " + task  + " has been resolved. Solution: " + solution);
+		            
+		            System.out.println("Task " + task  + " has been resolved. Solution: " + solution);
+		            
+		            String solutionPath = "/status/" + taskName;
+		            
+		            try {
+		            	
+						zk.create(solutionPath, solution.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+						
+					} catch (KeeperException | InterruptedException e) {
+						
+						e.printStackTrace();
+					}
+		            
+		            LOG.info("Task " + task + " solution has been posted to Client");
+		            
+		            try {
+						zk.delete(path, -1);
+					} catch (InterruptedException | KeeperException e) {
+						
+						e.printStackTrace();
+					}
+		            
+		            LOG.info("znode " + (String) ctx + " successfully deleted, as worker has completed it");
+		            
+	        	}
 	            break;
 	        default:
 	            LOG.error("getChildren failed.",  
@@ -1056,7 +1114,7 @@ public class Master implements Watcher, Closeable {
         m.bootstrap();
         m.getWorkers();
         m.getTasks();
-        m.getResultChildren();
+        m.getResultChildren("/completed");
         /*
          * now runs for master.
          */

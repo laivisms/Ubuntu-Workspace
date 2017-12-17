@@ -314,10 +314,18 @@ public class Client implements Watcher, Closeable {
         
         TaskObject task1 = new TaskObject();
         TaskObject task2 = new TaskObject();
+        TaskObject task3 = new TaskObject();
+        TaskObject task4 = new TaskObject();
+        TaskObject task5 = new TaskObject();
+        TaskObject task6 = new TaskObject();
         
-        c.submitTask("insert hello 12", task1);
+        c.submitTask("insert two 2", task1);
+        c.submitTask("insert three 3", task2);
+        c.submitTask("insert four 4", task3);
+        c.submitTask("insert five 5", task4);
+        c.submitTask("insert six 6", task5);
         Thread.sleep(100);
-        c.submitTask("delete hello", task2);
+        c.submitTask("calculate + two four six five", task6);
         
         Thread.sleep(100);
     }

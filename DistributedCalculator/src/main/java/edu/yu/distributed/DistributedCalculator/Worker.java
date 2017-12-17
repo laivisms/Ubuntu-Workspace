@@ -349,9 +349,14 @@ public class Worker implements Watcher, Closeable {
                     public void run() {
                         LOG.info("Executing your task: " + new String(data));
                         LOG.info("" + ((String) ctx));
-                        String result = (String) ctx + " " + WorkerLogicHandler.handleRequest(data, workerData);
+                        String result = (String) ctx + " " + WorkerLogicHandler.handleRequest(name, data, workerData);
                         
-                        zk.create("/completed/" + (String) ctx, result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, null, ctx);
+                        
+                        if(result.length()>9 && result.substring(0,9).equals("calculate")) 
+                        	zk.create("/completed/" + (String) ctx + "/part-", result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL, null, ctx);
+                        
+                        else
+                        	zk.create("/completed/" + (String) ctx, result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, null, ctx);
                         
                         /*
                          * zk.create("/status/" + (String) ctx, "done".getBytes(), Ids.OPEN_ACL_UNSAFE, 
