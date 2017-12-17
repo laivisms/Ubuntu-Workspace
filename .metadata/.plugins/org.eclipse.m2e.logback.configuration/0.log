@@ -964,3 +964,31 @@ java.io.EOFException: null
 2017-12-16 22:10:20,164 [Worker-121] INFO  o.e.m.c.i.embedder.EclipseLogger - Copying 1 resource
 2017-12-16 22:10:20,167 [Worker-121] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
 2017-12-16 22:10:20,167 [Worker-121] INFO  o.e.m.c.i.embedder.EclipseLogger - skip non existing resourceDirectory /home/malamuts/eclipse-workspace/DistributedCalculator/src/test/resources
+2017-12-16 22:37:09,360 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 22:37:09,360 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - Copying 1 resource
+2017-12-16 22:37:09,361 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 22:37:09,361 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - skip non existing resourceDirectory /home/malamuts/eclipse-workspace/DistributedCalculator/src/test/resources
+2017-12-16 22:40:11,520 [Worker-133] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 22:40:11,520 [Worker-133] INFO  o.e.m.c.i.embedder.EclipseLogger - Copying 1 resource
+2017-12-16 22:40:11,521 [Worker-133] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 22:40:11,521 [Worker-133] INFO  o.e.m.c.i.embedder.EclipseLogger - skip non existing resourceDirectory /home/malamuts/eclipse-workspace/DistributedCalculator/src/test/resources
+2017-12-16 22:40:29,153 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 22:40:29,153 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - Copying 1 resource
+2017-12-16 22:40:29,154 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 22:40:29,154 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - skip non existing resourceDirectory /home/malamuts/eclipse-workspace/DistributedCalculator/src/test/resources
+2017-12-16 22:43:09,437 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 22:43:09,437 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - Copying 1 resource
+2017-12-16 22:43:09,438 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 22:43:09,438 [Worker-132] INFO  o.e.m.c.i.embedder.EclipseLogger - skip non existing resourceDirectory /home/malamuts/eclipse-workspace/DistributedCalculator/src/test/resources
+2017-12-16 23:12:02,557 [Worker-136] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 23:12:02,557 [Worker-136] INFO  o.e.m.c.i.embedder.EclipseLogger - Copying 1 resource
+2017-12-16 23:12:02,558 [Worker-136] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 23:12:02,558 [Worker-136] INFO  o.e.m.c.i.embedder.EclipseLogger - skip non existing resourceDirectory /home/malamuts/eclipse-workspace/DistributedCalculator/src/test/resources
+2017-12-16 23:12:16,243 [Worker-138] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 23:12:16,243 [Worker-138] INFO  o.e.m.c.i.embedder.EclipseLogger - Copying 1 resource
+2017-12-16 23:12:16,244 [Worker-138] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 23:12:16,244 [Worker-138] INFO  o.e.m.c.i.embedder.EclipseLogger - skip non existing resourceDirectory /home/malamuts/eclipse-workspace/DistributedCalculator/src/test/resources
+2017-12-16 23:14:45,566 [Worker-136] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 23:14:45,567 [Worker-136] INFO  o.e.m.c.i.embedder.EclipseLogger - Copying 1 resource
+2017-12-16 23:14:45,568 [Worker-136] INFO  o.e.m.c.i.embedder.EclipseLogger - Using 'UTF-8' encoding to copy filtered resources.
+2017-12-16 23:14:45,569 [Worker-136] INFO  o.e.m.c.i.embedder.EclipseLogger - skip non existing resourceDirectory /home/malamuts/eclipse-workspace/DistributedCalculator/src/test/resources

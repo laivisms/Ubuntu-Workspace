@@ -43,7 +43,7 @@ class WorkerLogicHandler {
 			String key = request.substring(firstSpace + 1, lastSpace);
 			Integer value = Integer.parseInt(request.substring(lastSpace+1));
 			data.put(key, value);
-			result = request + " " + String.valueOf(value);
+			result = String.valueOf(value);
 		}
 		 
 		return result;

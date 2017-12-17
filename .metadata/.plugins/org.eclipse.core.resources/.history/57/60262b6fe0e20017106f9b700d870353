@@ -864,11 +864,7 @@ public class Master implements Watcher, Closeable {
                 break;
             case OK:
                 LOG.info("Task assigned correctly: " + name);
-                
                 deleteTask(name.substring( name.lastIndexOf("/") + 1));
-                
-                returnResult(path);
-
                 
                 
                 break;
@@ -894,45 +890,20 @@ public class Master implements Watcher, Closeable {
         public void process(WatchedEvent e) {
             if(e.getType() == EventType.NodeChildrenChanged) {
                 
-                getResultChildren(e.getPath());
+                returnResult(e.getPath());
             }
         }
     };
     
-    void getResultChildren(String path) {
-    	zk.getChildren(path, taskResultWatcher, resultChildrenCallback, null);
-    }
-    
-    ChildrenCallback resultChildrenCallback = new ChildrenCallback() {
-
-		public void processResult(int rc, String path, Object ctx, List<String> children) {
-			switch(Code.get(rc)) { 
-            case CONNECTIONLOSS:
-                getResultChildren(path);
-                
-                break;
-            case OK:
-               returnResult(path + "/result", path);
-                
-                break;
-            default:
-                LOG.error("getChildren failed.",  
-                        KeeperException.create(Code.get(rc), path));
-            }
-			
-		}
-    	
-    };
-    
-    void returnResult(String path, String ctx) {
-    	zk.getData(path, false, resultCallback, ctx);;
+    void returnResult(String path) {
+    	zk.getData(path, taskResultWatcher, resultCallback, null);
     }
     
     DataCallback resultCallback = new DataCallback() {
 		public void processResult(int rc, String path, Object ctx, byte[] data, Stat stat) {
 			switch(Code.get(rc)) {
 			case CONNECTIONLOSS:
-	            returnResult(path, (String) ctx);
+	            returnResult(path);
 	            
 	            break;
 	        case OK:

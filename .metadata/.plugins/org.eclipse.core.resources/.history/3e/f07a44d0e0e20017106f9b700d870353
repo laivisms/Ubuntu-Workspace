@@ -912,7 +912,7 @@ public class Master implements Watcher, Closeable {
                 
                 break;
             case OK:
-               returnResult(path + "/result", path);
+               
                 
                 break;
             default:
@@ -924,15 +924,15 @@ public class Master implements Watcher, Closeable {
     	
     };
     
-    void returnResult(String path, String ctx) {
-    	zk.getData(path, false, resultCallback, ctx);;
+    void returnResult(String path) {
+    	zk.getData(path, false, resultCallback, null);;
     }
     
     DataCallback resultCallback = new DataCallback() {
 		public void processResult(int rc, String path, Object ctx, byte[] data, Stat stat) {
 			switch(Code.get(rc)) {
 			case CONNECTIONLOSS:
-	            returnResult(path, (String) ctx);
+	            returnResult(path);
 	            
 	            break;
 	        case OK:

@@ -56,8 +56,6 @@ public class Worker implements Watcher, Closeable {
     private volatile boolean connected = false;
     private volatile boolean expired = false;
     
-    private WorkerData workerData = new WorkerData();
-    
     /*
      * In general, it is not a good idea to block the callback thread
      * of the ZooKeeper client. We use a thread pool executor to detach
@@ -348,9 +346,6 @@ public class Worker implements Watcher, Closeable {
                     public void run() {
                         LOG.info("Executing your task: " + new String(data));
                         LOG.info("" + ((String) ctx));
-                        String result = (String) ctx + " " + WorkerLogicHandler.handleRequest(data, workerData);
-                        
-                        zk.create(path + "result", result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, null, ctx);
                         
                         zk.create("/status/" + (String) ctx, "done".getBytes(), Ids.OPEN_ACL_UNSAFE, 
                                 CreateMode.PERSISTENT, taskStatusCreateCallback, null);
