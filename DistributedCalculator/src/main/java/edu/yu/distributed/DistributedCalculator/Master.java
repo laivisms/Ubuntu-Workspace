@@ -877,12 +877,12 @@ public class Master implements Watcher, Closeable {
     			
     		}
     		
-    		tasksCache.associateTask((String) ctx, request, currentL);//create an association from the task name to an object which will hold solutions until they are ready to be combined
+    		tasksCache.associateTask((String) ctx, request, currentL + 1);//create an association from the task name to an object which will hold solutions until they are ready to be combined
     		
     		try {
 				zk.create("/completed/" + (String) ctx,"parts".getBytes() , Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);//create the node to store eventual answers to parts
 			} catch (KeeperException | InterruptedException e) {
-				// TODO Auto-generated catch block
+				
 				e.printStackTrace();
 			}
     		
@@ -1003,48 +1003,57 @@ public class Master implements Watcher, Closeable {
 	            
 	            break;
 	        case OK:
+	        	boolean completedAllParts = true;
 	        	String result = new String(data);
 	        	int firstSpace = result.indexOf(" ");
 	        	if(result.substring(0, 5).equals("parts"))//this is a multi-part answer that needs to be combined
 	        		getResultChildren(path);
-	        	else if(result.length() > 11 && result.substring(firstSpace+1,firstSpace + 10).equals("calculate")) {//this is one part of a multi part answer
-	        		LOG.info("Part of calculation request completed");
+	        	else {
+	        		if(result.length() > firstSpace + 11 && result.substring(firstSpace+1,firstSpace + 10).equals("calculate")) {//this is one part of a multi part answer
+		        		completedAllParts = false;
+	        			LOG.info("Part of calculate request completed");
+		        		String taskName = result.substring(0, firstSpace);
+		        		int secondSpace = result.indexOf(" ", firstSpace+1);
+		        		completedAllParts = tasksCache.addCaclulationPart(taskName, result.substring(secondSpace + 3));
+		        		if(completedAllParts) {
+		        			result = processCompletedCalculate(taskName);
+		        			
+		        		}
+	        		}
+	        	
 	        		
-	        	}
-	        	else {//this is a full answer, ie, resulting from a put, get, or delete
-	        		
-		            int lastSpace = result.lastIndexOf(" ");
-		            String taskName = result.substring(0, firstSpace);
-		            String task = result.substring(firstSpace+1, lastSpace);
-		            String solution = result.substring(lastSpace+1);
-		            
-		            
-		            LOG.info("Task " + task  + " has been resolved. Solution: " + solution);
-		            
-		            System.out.println("Task " + task  + " has been resolved. Solution: " + solution);
-		            
-		            String solutionPath = "/status/" + taskName;
-		            
-		            try {
-		            	
-						zk.create(solutionPath, solution.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
-						
-					} catch (KeeperException | InterruptedException e) {
-						
-						e.printStackTrace();
-					}
-		            
-		            LOG.info("Task " + task + " solution has been posted to Client");
-		            
-		            try {
-						zk.delete(path, -1);
-					} catch (InterruptedException | KeeperException e) {
-						
-						e.printStackTrace();
-					}
-		            
-		            LOG.info("znode " + (String) ctx + " successfully deleted, as worker has completed it");
-		            
+	        		if(completedAllParts) {//this is a full answer, ie, resulting from a put, get, delete, or already combined parts)
+			            int lastSpace = result.lastIndexOf(" ");
+			            String taskName = result.substring(0, firstSpace);
+			            String task = result.substring(firstSpace+1, lastSpace);
+			            String solution = result.substring(lastSpace+1);
+			            
+			            
+			            LOG.info("Task " + task  + " has been resolved. Solution: " + solution);
+			            
+			            
+			            String solutionPath = "/status/" + taskName;
+			            
+			            try {
+			            	
+							zk.create(solutionPath, solution.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+							
+						} catch (KeeperException | InterruptedException e) {
+							
+							e.printStackTrace();
+						}
+			            
+			            LOG.info("Task " + task + " solution has been posted to Client");
+			            
+			            try {
+							zk.delete(path, -1);
+						} catch (InterruptedException | KeeperException e) {
+							
+							e.printStackTrace();
+						}
+			            
+			            LOG.info("znode " + (String) ctx + " successfully deleted, as worker has completed it");
+	        		}
 	        	}
 	            break;
 	        default:
@@ -1078,6 +1087,73 @@ public class Master implements Watcher, Closeable {
             }
         }
     };
+    
+    String processCompletedCalculate(String taskName) {
+    	String[] tasks = tasksCache.getCalculationParts(taskName);
+    	
+    	String operator = tasks[0].substring(12, 13);
+    	
+    	String combinedValues = tasks[0].substring(14, tasks[0].lastIndexOf(" ")); //initialize to first set of values
+    	
+    	int combinedSolutions = Integer.parseInt(tasks[0].substring(tasks[0].lastIndexOf(" ")));
+    	
+    	String values, current;
+    	int thirdSpace, lastSpace, solution;
+    	
+    	for(int i=1; i<tasks.length; i++) {
+    		current = tasks[i];
+    		thirdSpace = tasks[i].indexOf(" ", 10) + 2;
+    		lastSpace = current.lastIndexOf(" ");
+    		if(operator.equals("/") || operator.equals("-")) {
+    			values = current.substring(thirdSpace);
+    			combinedValues += " " + values;
+    			String[] valueList = values.split(" ");
+    			for(String value : valueList) {
+    				combinedSolutions = performOp(operator, combinedSolutions, Integer.parseInt(value));
+    			}
+    		}
+    		else {
+    			values = current.substring(thirdSpace + 1, lastSpace);
+    			combinedValues += " " + values;
+    			solution = Integer.parseInt(current.substring(lastSpace + 1));
+    			combinedSolutions = performOp(operator, combinedSolutions, solution);
+    		}
+    	}
+    	
+    	String requestTotal = taskName + " calculate " + operator + " " + combinedValues + " " + combinedSolutions; 
+    	
+    	return requestTotal;
+    	
+    	
+    	
+    }
+    
+    int performOp(String operator, int a, int b) {
+    	int solution = 0;
+		
+		switch (operator) {
+		case("+"):
+			solution = a + b;
+			break;
+		
+		case("-"):
+			solution = a - b;
+			break;
+		
+		case("*"):
+			solution = a * b;
+			break;
+		
+		case("/"):
+			if(b==0 || a==0)
+				solution = 0;
+			else
+				solution = a / b;
+			break;
+		}
+		
+		return solution;
+    }
     
     /**
      * Closes the ZooKeeper session. 

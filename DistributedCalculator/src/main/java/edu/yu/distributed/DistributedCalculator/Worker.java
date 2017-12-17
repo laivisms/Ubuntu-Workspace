@@ -352,11 +352,11 @@ public class Worker implements Watcher, Closeable {
                         String result = (String) ctx + " " + WorkerLogicHandler.handleRequest(name, data, workerData);
                         
                         
-                        if(result.length()>9 && result.substring(0,9).equals("calculate")) 
-                        	zk.create("/completed/" + (String) ctx + "/part-", result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL, null, ctx);
+                        if(result.contains("calculate")) 
+                        	zk.create("/completed/" + (String) ctx + "/part-", result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL, taskStatusCreateCallback, ctx);
                         
                         else
-                        	zk.create("/completed/" + (String) ctx, result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, null, ctx);
+                        	zk.create("/completed/" + (String) ctx, result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, taskStatusCreateCallback, ctx);
                         
                         /*
                          * zk.create("/status/" + (String) ctx, "done".getBytes(), Ids.OPEN_ACL_UNSAFE, 

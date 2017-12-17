@@ -123,10 +123,11 @@ class WorkerLogicHandler {
 			op = operandList[i];
 			value = data.get(op);
 			opValues += " " + value;
-			solution = performOp(operator, solution, value);
+			if((!op.equals("/") && !op.equals("-")) || orderNumber.equals("1"))//cannot compute / or - operations (because pemdas) unless they are the first ones in the list
+				solution = performOp(operator, solution, value);
 		}
 		
-		result = "calculate " + operator + " " + orderNumber + " " + opValues + " " + solution;
+		result = "calculate " + orderNumber + " " + operator + " " + opValues + " " + solution;
 		
 		return result;
 	}
@@ -148,7 +149,10 @@ class WorkerLogicHandler {
 			break;
 		
 		case("/"):
-			solution = a / b;
+			if(b==0 || a==0)
+				solution = 0;
+			else
+				solution = a / b;
 			break;
 		}
 		

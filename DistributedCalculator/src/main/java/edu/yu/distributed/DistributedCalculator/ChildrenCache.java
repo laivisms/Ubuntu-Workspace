@@ -101,7 +101,7 @@ public class ChildrenCache {
     }
     
     void associateTask(String taskName, String request, int partCount) {
-    	taskNameToTask.put(taskName, new CalculationTask(request, partCount));
+    	taskNameToTask.put(taskName, new CalculationTask(request, taskName, partCount));
     }
     
     boolean addCaclulationPart(String task, String part) {
@@ -119,11 +119,13 @@ public class ChildrenCache {
     	PriorityQueue<RequestOrderWrapper> parts = new PriorityQueue<RequestOrderWrapper>();
     	
     	String request;
+    	String taskName;
     	
     	int partCount;
     	
-    	public CalculationTask(String request, int partCount) {
+    	public CalculationTask(String request, String taskName, int partCount) {
     		this.request = request;
+    		this.taskName = taskName;
     		this.partCount = partCount;
     	}
     	
