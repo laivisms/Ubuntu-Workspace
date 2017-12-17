@@ -1014,7 +1014,7 @@ public class Master implements Watcher, Closeable {
 	        			LOG.info("Part of calculate request completed");
 		        		String taskName = result.substring(0, firstSpace);
 		        		int secondSpace = result.indexOf(" ", firstSpace+1);
-		        		completedAllParts = tasksCache.addCaclulationPart(taskName, result.substring(secondSpace + 3));
+		        		completedAllParts = tasksCache.addCaclulationPart(taskName, result.substring(firstSpace+1));
 		        		if(completedAllParts) {
 		        			result = processCompletedCalculate(taskName);
 		        			
@@ -1034,25 +1034,18 @@ public class Master implements Watcher, Closeable {
 			            
 			            String solutionPath = "/status/" + taskName;
 			            
-			            try {
+			           
 			            	
-							zk.create(solutionPath, solution.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);
+						
+						zk.create(solutionPath, solution.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, taskCreateCallback, ctx);
 							
-						} catch (KeeperException | InterruptedException e) {
-							
-							e.printStackTrace();
-						}
+						
 			            
 			            LOG.info("Task " + task + " solution has been posted to Client");
 			            
-			            try {
-							zk.delete(path, -1);
-						} catch (InterruptedException | KeeperException e) {
-							
-							e.printStackTrace();
-						}
+			            zk.delete(path, -1, taskDeleteCallback, ctx);
 			            
-			            LOG.info("znode " + (String) ctx + " successfully deleted, as worker has completed it");
+			            //LOG.info("znode " + (String) ctx + " successfully deleted, as worker has completed it");
 	        		}
 	        	}
 	            break;
@@ -1063,6 +1056,33 @@ public class Master implements Watcher, Closeable {
 		}
     };
     
+    StringCallback taskCreateCallback = new StringCallback() {
+
+		@Override
+		public void processResult(int rc, String path, Object ctx, String name) {
+			switch (Code.get(rc)) {
+            case CONNECTIONLOSS:
+                deleteTask(path);
+                
+                break;
+            case OK:
+                LOG.info("Successfully created " + path);
+                
+                break;
+            case NONODE:
+                LOG.info("Answer has been created already");
+                
+                break;
+            default:
+                LOG.error("Something went wrong here, " + 
+                        KeeperException.create(Code.get(rc), path));
+            }
+			
+		}
+
+		
+
+    };
     
     
     
@@ -1095,7 +1115,7 @@ public class Master implements Watcher, Closeable {
     	
     	String combinedValues = tasks[0].substring(14, tasks[0].lastIndexOf(" ")); //initialize to first set of values
     	
-    	int combinedSolutions = Integer.parseInt(tasks[0].substring(tasks[0].lastIndexOf(" ")));
+    	int combinedSolutions = Integer.parseInt(tasks[0].substring(tasks[0].lastIndexOf(" ") + 1));
     	
     	String values, current;
     	int thirdSpace, lastSpace, solution;

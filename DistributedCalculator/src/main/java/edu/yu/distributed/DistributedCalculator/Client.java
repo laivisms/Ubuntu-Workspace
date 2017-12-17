@@ -325,7 +325,7 @@ public class Client implements Watcher, Closeable {
         c.submitTask("insert five 5", task4);
         c.submitTask("insert six 6", task5);
         Thread.sleep(100);
-        c.submitTask("calculate + two four six five", task6);
+        c.submitTask("calculate - two four six five", task6);
         
         Thread.sleep(100);
     }
