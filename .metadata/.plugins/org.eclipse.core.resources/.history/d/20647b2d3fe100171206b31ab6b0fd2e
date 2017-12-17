@@ -1,0 +1,9 @@
+package edu.yu.distributed.DistributedCalculator;
+
+class WorkerLogicHandler {
+	
+	
+	public static void handleRequest() {
+		
+	}
+}

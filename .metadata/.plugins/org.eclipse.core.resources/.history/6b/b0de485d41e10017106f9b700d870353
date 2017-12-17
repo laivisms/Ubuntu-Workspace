@@ -1,0 +1,44 @@
+package edu.yu.distributed.DistributedCalculator;
+
+import java.util.HashMap;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+class WorkerData {
+	
+	private HashMap<String, Integer> numbers = new HashMap<String, Integer>();
+	
+	private ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
+	
+	
+	/**
+	 * 
+	 * @param key
+	 * @return the integer associated with key if exists, null otherwise
+	 */
+	public Integer get(String key) {
+		Integer result = null;
+		
+		lock.readLock().lock();
+		
+		if(numbers.containsKey(key)) {
+			result = numbers.get(key);
+		}
+		
+		lock.readLock().unlock();
+		
+		return result;
+		
+	}
+	
+	
+	public void put(String key, Integer value) {
+		
+		lock.writeLock().lock();
+		
+		numbers.put(key, value);
+		
+		lock.writeLock().unlock();
+		
+	}
+
+}

@@ -1,0 +1,5 @@
+package edu.yu.distributed.DistributedCalculator;
+
+class WorkerData {
+
+}
