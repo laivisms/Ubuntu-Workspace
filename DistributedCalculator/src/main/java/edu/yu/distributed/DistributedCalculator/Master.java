@@ -197,6 +197,7 @@ public class Master implements Watcher, Closeable {
         createParent("/assign", new byte[0]);
         createParent("/tasks", new byte[0]);
         createParent("/status", new byte[0]);
+        createParent("/completed", new byte[0]);
     }
     
     void createParent(String path, byte[] data){
@@ -276,7 +277,7 @@ public class Master implements Watcher, Closeable {
      * 
      *  The second case is if we find that the node is already there.
      *  In this case, we call exists to set a watch on the znode.
-     */
+     *
     StringCallback masterCreateCallback = new StringCallback() {
         public void processResult(int rc, String path, Object ctx, String name) {
             switch (Code.get(rc)) { 
@@ -370,7 +371,7 @@ public class Master implements Watcher, Closeable {
     
     /**
      * Tries to create a /master lock znode to acquire leadership.
-     */
+     *
     public void runForMaster() {
         LOG.info("Running for master");
         zk.create("/master", 
@@ -463,6 +464,11 @@ public class Master implements Watcher, Closeable {
                         + children.size() 
                         + " workers");
                 //reassignAndSet(children);
+                if(workersCache == null) {
+                	workersCache = new ChildrenCache(children);
+                }
+                else
+                	workersCache.removedAndSet(children);
                 break;
             default:
                 LOG.error("getChildren failed",  
@@ -658,11 +664,11 @@ public class Master implements Watcher, Closeable {
      */
       
     private static RequestType getRequestType(String request) {
-    	if(request.substring(0,6).toLowerCase().equals("instert"))
+    	if(request.substring(0,6).toLowerCase().equals("insert"))
     		return RequestType.INSERT;
     	if(request.substring(0,6).toLowerCase().equals("delete"))
     		return RequestType.DELETE;
-    	if(request.substring(0,7).toLowerCase().equals("retrieve"))
+    	if(request.substring(0,8).toLowerCase().equals("retrieve"))
     		return RequestType.RETRIEVE;
     	if(request.substring(0, 9).toLowerCase().equals("calculate"))
     		return RequestType.CALCULATE;
@@ -790,6 +796,10 @@ public class Master implements Watcher, Closeable {
      * @author laivi ms
      */
     void determineRequest(byte[] data, Object ctx) {
+    	
+    	if(workersCache == null) {
+    		workersCache = new ChildrenCache();
+    	}
     	List<String> list = workersCache.getList();
     	
     	String request = new String(data);
@@ -802,7 +812,7 @@ public class Master implements Watcher, Closeable {
     	switch(type) {
     	case INSERT:
     		firstSpace = request.indexOf(" ");
-    		secondSpace = request.indexOf(" ");
+    		secondSpace = request.lastIndexOf(" ");
     		key = request.substring(firstSpace+1, secondSpace);
     		
     		designatedWorker = list.get(random.nextInt(list.size()));
@@ -822,7 +832,7 @@ public class Master implements Watcher, Closeable {
     	case DELETE:
     	case RETRIEVE:
     		space = request.indexOf(" ");
-    		key = request.substring(space);
+    		key = request.substring(space + 1);
     		designatedWorker = workersCache.getWorker(key);
     		
     		assignmentPath = "/assign/" + 
@@ -841,6 +851,11 @@ public class Master implements Watcher, Closeable {
     	case CALCULATE:
     		
     		
+    		
+    		break;
+    	case ERROR:
+    		
+    		LOG.info("Error: Request is incorrectly formatted");
     		
     		break;
     	}
@@ -867,7 +882,7 @@ public class Master implements Watcher, Closeable {
                 
                 deleteTask(name.substring( name.lastIndexOf("/") + 1));
                 
-                returnResult(path);
+                
 
                 
                 
@@ -894,13 +909,13 @@ public class Master implements Watcher, Closeable {
         public void process(WatchedEvent e) {
             if(e.getType() == EventType.NodeChildrenChanged) {
                 
-                getResultChildren(e.getPath());
+                getResultChildren();
             }
         }
     };
     
-    void getResultChildren(String path) {
-    	zk.getChildren(path, taskResultWatcher, resultChildrenCallback, null);
+    void getResultChildren() {
+    	zk.getChildren("/completed", taskResultWatcher, resultChildrenCallback, null);
     }
     
     ChildrenCallback resultChildrenCallback = new ChildrenCallback() {
@@ -908,11 +923,13 @@ public class Master implements Watcher, Closeable {
 		public void processResult(int rc, String path, Object ctx, List<String> children) {
 			switch(Code.get(rc)) { 
             case CONNECTIONLOSS:
-                getResultChildren(path);
+                getResultChildren();
                 
                 break;
             case OK:
-               returnResult(path + "/result", path);
+               for(String task : children) {
+            	   returnResult(path + "/" + task, task);
+               }
                 
                 break;
             default:
@@ -924,15 +941,15 @@ public class Master implements Watcher, Closeable {
     	
     };
     
-    void returnResult(String path, String ctx) {
-    	zk.getData(path, false, resultCallback, ctx);;
+    void returnResult(String path, String task) {
+    	zk.getData(path, false, resultCallback, task);;
     }
     
     DataCallback resultCallback = new DataCallback() {
 		public void processResult(int rc, String path, Object ctx, byte[] data, Stat stat) {
 			switch(Code.get(rc)) {
 			case CONNECTIONLOSS:
-	            returnResult(path, (String) ctx);
+	            returnResult(path, (String)ctx);
 	            
 	            break;
 	        case OK:
@@ -959,6 +976,17 @@ public class Master implements Watcher, Closeable {
 					e.printStackTrace();
 				}
 	            
+	            LOG.info("Task " + task + " solution has been posted to Client");
+	            
+	            try {
+					zk.delete(path, -1);
+				} catch (InterruptedException | KeeperException e) {
+					
+					e.printStackTrace();
+				}
+	            
+	            LOG.info("znode " + (String) ctx + " successfully deleted, as worker has completed it");
+	            
 	            
 	            break;
 	        default:
@@ -967,6 +995,8 @@ public class Master implements Watcher, Closeable {
 	        }
 		}
     };
+    
+    
     
     
     VoidCallback taskDeleteCallback = new VoidCallback(){
@@ -1024,11 +1054,13 @@ public class Master implements Watcher, Closeable {
          * bootstrap() creates some necessary znodes.
          */
         m.bootstrap();
-        
+        m.getWorkers();
+        m.getTasks();
+        m.getResultChildren();
         /*
          * now runs for master.
          */
-        m.runForMaster();
+        //m.runForMaster();
         
         while(!m.isExpired()){
             Thread.sleep(1000);

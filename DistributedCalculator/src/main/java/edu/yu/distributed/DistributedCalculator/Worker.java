@@ -283,7 +283,7 @@ public class Worker implements Watcher, Closeable {
                 getTasks();
                 break;
             case OK:
-                if(children != null){
+                if(children != null && children.size() > 0){
                     executor.execute(new Runnable() {
                         List<String> children;
                         DataCallback cb;
@@ -339,6 +339,7 @@ public class Worker implements Watcher, Closeable {
                      * Initializes the variables this anonymous class needs
                      */
                     public Runnable init(String path, byte[] data, Object ctx) {
+                    	this.path = path;
                         this.data = data;
                         this.ctx = ctx;
                         
@@ -350,12 +351,15 @@ public class Worker implements Watcher, Closeable {
                         LOG.info("" + ((String) ctx));
                         String result = (String) ctx + " " + WorkerLogicHandler.handleRequest(data, workerData);
                         
-                        zk.create(path + "result", result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, null, ctx);
+                        zk.create("/completed/" + (String) ctx, result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, null, ctx);
                         
-                        zk.create("/status/" + (String) ctx, "done".getBytes(), Ids.OPEN_ACL_UNSAFE, 
+                        /*
+                         * zk.create("/status/" + (String) ctx, "done".getBytes(), Ids.OPEN_ACL_UNSAFE, 
                                 CreateMode.PERSISTENT, taskStatusCreateCallback, null);
+                                */
                         zk.delete("/assign/worker-" + serverId + "/" + (String) ctx, 
                                 -1, taskVoidCallback, null);
+                        
                     }
                 }.init(path, data, ctx));
                 

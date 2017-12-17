@@ -1,0 +1,86 @@
+package edu.yu.distributed.DistributedCalculator;
+
+import java.util.regex.Pattern;
+
+class WorkerLogicHandler {
+	
+	static final String BAD_REQUEST = "Error: Request incorrectly formatted.";
+	static final String KEY_NOT_EXIST = "Error: the specified key does not exist";
+	static final String INSERT = "insert";
+	static final String RETRIEVE = "retrieve";
+	static final String DELETE = "delete";
+	static final String VALID_TEXT = "(\\p{Alpha})+";
+	static final String VALID_VALUE = "(\\d)+";
+	;
+	
+	public static String handleRequest(byte[] req, WorkerData data) {
+		
+		String request = new String(req);
+		
+		if(request.length() < 6)
+			return BAD_REQUEST;
+		else if(request.substring(0,6).toLowerCase().equals(INSERT)){
+			return handlePut(request, data);
+		}
+		else if(request.substring(0,6).toLowerCase().equals(RETRIEVE)) {
+			return handleGet(request, data);
+		}
+		else if(request.substring(0,6).toLowerCase().equals(DELETE))
+			return handleDelete(request, data);
+		
+		return BAD_REQUEST;
+	}
+	
+	
+	private static String handlePut(String request, WorkerData data) {
+		String result = null;
+		
+		if(!Pattern.matches(INSERT + "\\s" + VALID_TEXT + "\\s" + VALID_VALUE, request)) 
+			result = BAD_REQUEST;
+		else {
+			int firstSpace = request.indexOf(' ');
+			int lastSpace = request.lastIndexOf(' ');
+			String key = request.substring(firstSpace + 1, lastSpace);
+			Integer value = Integer.parseInt(request.substring(lastSpace+1));
+			data.put(key, value);
+			result = request + " " + String.valueOf(value);
+		}
+		 
+		return result;
+	}
+	
+	private static String handleGet(String request, WorkerData data) {
+		String result = null;
+		
+		if(!Pattern.matches(RETRIEVE + "\\s" + VALID_TEXT, request))
+			result = BAD_REQUEST;
+		else {
+			int space = request.indexOf(" ");
+			String key = request.substring(space+1);
+			if(!data.contains(key))
+				result = KEY_NOT_EXIST;
+			else {
+				Integer value = data.get(key);
+				result = String.valueOf(value);
+			}
+		};
+		
+		return result;
+	}
+	
+	private static String handleDelete(String request, WorkerData data) {
+		String result = null;
+		
+		if(!Pattern.matches(DELETE + "\\s" + VALID_TEXT, request))
+			result = BAD_REQUEST;
+		else {
+			int space = request.indexOf(" ");
+			String key = request.substring(space+1);
+			if(data.contains(key))
+				data.remove(key);
+			result = key;
+		}
+		
+		return result;
+	}
+}

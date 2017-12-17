@@ -22,7 +22,7 @@ class WorkerLogicHandler {
 		else if(request.substring(0,6).toLowerCase().equals(INSERT)){
 			return handlePut(request, data);
 		}
-		else if(request.substring(0,6).toLowerCase().equals(RETRIEVE)) {
+		else if(request.substring(0,8).toLowerCase().equals(RETRIEVE)) {
 			return handleGet(request, data);
 		}
 		else if(request.substring(0,6).toLowerCase().equals(DELETE))
@@ -34,17 +34,14 @@ class WorkerLogicHandler {
 	
 	private static String handlePut(String request, WorkerData data) {
 		String result = null;
-		
-		if(!Pattern.matches(INSERT + "\\s" + VALID_TEXT + "\\s" + VALID_VALUE, request)) 
-			result = BAD_REQUEST;
-		else {
+	
 			int firstSpace = request.indexOf(' ');
 			int lastSpace = request.lastIndexOf(' ');
 			String key = request.substring(firstSpace + 1, lastSpace);
 			Integer value = Integer.parseInt(request.substring(lastSpace+1));
 			data.put(key, value);
 			result = request + " " + String.valueOf(value);
-		}
+		
 		 
 		return result;
 	}
@@ -61,7 +58,7 @@ class WorkerLogicHandler {
 				result = KEY_NOT_EXIST;
 			else {
 				Integer value = data.get(key);
-				result = String.valueOf(value);
+				result = request + " " + String.valueOf(value);
 			}
 		};
 		
@@ -76,9 +73,11 @@ class WorkerLogicHandler {
 		else {
 			int space = request.indexOf(" ");
 			String key = request.substring(space+1);
+			int value = 0;
 			if(data.contains(key))
+				value = data.get(key);
 				data.remove(key);
-			result = key;
+			result = request + " " + String.valueOf(value);
 		}
 		
 		return result;

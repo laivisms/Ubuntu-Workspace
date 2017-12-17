@@ -22,6 +22,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.zookeeper.AsyncCallback.DataCallback;
 import org.apache.zookeeper.AsyncCallback.StatCallback;
@@ -287,6 +288,10 @@ public class Client implements Watcher, Closeable {
         
     }
     
+    void sleep(int time) {
+    	this.sleep(time);
+    }
+    
     @Override
     public void close() 
             throws IOException
@@ -310,11 +315,11 @@ public class Client implements Watcher, Closeable {
         TaskObject task1 = new TaskObject();
         TaskObject task2 = new TaskObject();
         
-        c.submitTask("Sample task", task1);
-        c.submitTask("Another sample task", task2);
+        c.submitTask("insert hello 12", task1);
+        Thread.sleep(100);
+        c.submitTask("delete hello", task2);
         
-        task1.waitUntilDone();
-        task2.waitUntilDone();
+        Thread.sleep(100);
     }
 
 }
