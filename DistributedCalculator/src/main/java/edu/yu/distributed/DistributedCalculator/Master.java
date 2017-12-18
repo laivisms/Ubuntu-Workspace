@@ -201,6 +201,7 @@ public class Master implements Watcher, Closeable {
     }
     
     void createParent(String path, byte[] data){
+    	//the purpose of this zk access is to initialize all the folders we will be useing, if they dont already exist
         zk.create(path, 
                 data, 
                 Ids.OPEN_ACL_UNSAFE, 
@@ -447,6 +448,7 @@ public class Master implements Watcher, Closeable {
     };
     
     void getWorkers(){
+    	//the purpose of this zookeeper access is to obtain a list of our workers we can use, and set a watch to get any new workers that join
         zk.getChildren("/workers", 
                 workersChangeWatcher, 
                 workersGetChildrenCallback, 
@@ -688,6 +690,9 @@ public class Master implements Watcher, Closeable {
     };
     
     void getTasks(){
+    	//the point of this zookeeper access originally sets a watch on the tasks folder, to be aware of any new tasks by clients. however, when the
+    	//watch is called, it will call this function to ensure no more changes were made from the time the watch was triggered until the time 
+    	//we received the watch notification
         zk.getChildren("/tasks", 
                 tasksChangeWatcher, 
                 tasksGetChildrenCallback, 
@@ -729,7 +734,9 @@ public class Master implements Watcher, Closeable {
         for(String task : tasks){
         	//@author Laivi MS { // implementing multithreading
        	 
-        	executor.execute(new Runnable() {
+        	
+        	getTaskData(task);
+        	/*executor.execute(new Runnable() {
         		String task;
         		
         		public Runnable init (String task) {
@@ -740,13 +747,14 @@ public class Master implements Watcher, Closeable {
         		public void run() {
         			getTaskData(task);
         		}
-        	}.init(task));
+        	}.init(task));*/
         	
             //}
         }
     }
 
     void getTaskData(String task) {
+    	//this zookeeper access serves to retreive the data from the nodes that we know have changed somehow. We know becuase of the tasksChangeWatcher above
         zk.getData("/tasks/" + task, 
                 false, 
                 taskDataCallback, 
@@ -823,6 +831,7 @@ public class Master implements Watcher, Closeable {
                     "/" + 
                     (String) ctx;
             LOG.info( "Insert request recieved. Assignment path: " + assignmentPath );
+            data = ((String) ctx + " " + request).getBytes();
             createAssignment(assignmentPath, data);
     		
     		
@@ -843,6 +852,7 @@ public class Master implements Watcher, Closeable {
     			LOG.info( "Delete Request Recieved. Assignment path: " + assignmentPath );
     		else
     			LOG.info( "Retrieve request recieved. Assignment path: " + assignmentPath );
+    		data = ((String) ctx + " " + request).getBytes();
             createAssignment(assignmentPath, data);
             
             
@@ -879,24 +889,24 @@ public class Master implements Watcher, Closeable {
     		
     		tasksCache.associateTask((String) ctx, request, currentL + 1);//create an association from the task name to an object which will hold solutions until they are ready to be combined
     		
-    		try {
-				zk.create("/completed/" + (String) ctx,"parts".getBytes() , Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT);//create the node to store eventual answers to parts
-			} catch (KeeperException | InterruptedException e) {
-				
-				e.printStackTrace();
-			}
+    		//this zookeeper access initiallizes the folder in the completed folder into which this assignment will store its multiple parts.
+    		//usually this will be created when the assignment is completed, but since calculate requests require multiple parts, it is better to
+    		//create the parent of the folder into which we will create the parts later, to avoid confusion.
+    		zk.create("/completed/" + (String) ctx, "parts".getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, taskCreateCallback, null);//create the node to store eventual answers to parts
+			
     		
     		String assignmentData;
     		
     		int counter = 1;
     		for(ArrayList<String> A : similars) {//assign all parts of the request to corresponding workers, with added counter for order, like TCP
-    			assignmentData = "calculate " + counter + " " + operator + " " + String.join(" ", A);
+    			assignmentData = (String) ctx + " calculate " + counter + " " + operator + " " + String.join(" ", A);
     			designatedWorker = workersCache.getWorker(A.get(0));
     			assignmentPath = "/assign/" + 
                         designatedWorker + 
                         "/" + 
-                        (String) ctx;
+                        (String) ctx + "part" + counter;
     			createAssignment(assignmentPath, assignmentData.getBytes());
+    			LOG.info("partial calculation " + assignmentData + " has been assigned to worker " + designatedWorker);
     			counter++;
     		}
     			
@@ -912,6 +922,7 @@ public class Master implements Watcher, Closeable {
     }
     
     void createAssignment(String path, byte[] data){
+    	//Does what is says: creates an "assignment", or a node in a workers assignemnet folder, containing a task for the worker to perform
         zk.create(path, 
                 data, 
                 Ids.OPEN_ACL_UNSAFE, 
@@ -938,7 +949,7 @@ public class Master implements Watcher, Closeable {
                 
                 break;
             case NODEEXISTS: 
-                LOG.warn("Task already assigned");
+                LOG.warn("Task at " + path + " already assigned");
                 
                 break;
             default:
@@ -952,12 +963,13 @@ public class Master implements Watcher, Closeable {
      * Once assigned, we delete the task from /tasks
      */
     void deleteTask(String name){
+    	//we no longer need the task that the client posted, since we already posted it to the worker. Delete it
         zk.delete("/tasks/" + name, -1, taskDeleteCallback, null);
     }
     
     Watcher taskResultWatcher = new Watcher() {
         public void process(WatchedEvent e) {
-            if(e.getType() == EventType.NodeChildrenChanged) {
+        	if(e.getType() == EventType.NodeChildrenChanged) {
                 
                 getResultChildren(e.getPath());
             }
@@ -982,9 +994,14 @@ public class Master implements Watcher, Closeable {
                }
                 
                 break;
+            case NONODE:
+            	LOG.info("node " + path + " deleted successfully");
+            	break;
+            
             default:
                 LOG.error("getChildren failed.",  
                         KeeperException.create(Code.get(rc), path));
+                
             }
 			
 		}
@@ -1014,11 +1031,14 @@ public class Master implements Watcher, Closeable {
 	        			LOG.info("Part of calculate request completed");
 		        		String taskName = result.substring(0, firstSpace);
 		        		int secondSpace = result.indexOf(" ", firstSpace+1);
+		        		LOG.info("Partial solution " + result + " has been completed");
 		        		completedAllParts = tasksCache.addCaclulationPart(taskName, result.substring(firstSpace+1));
+		        		zk.delete(path, -1, taskDeleteCallback, ctx);
 		        		if(completedAllParts) {
 		        			result = processCompletedCalculate(taskName);
 		        			
 		        		}
+		        		
 	        		}
 	        	
 	        		
@@ -1043,12 +1063,15 @@ public class Master implements Watcher, Closeable {
 			            
 			            LOG.info("Task " + task + " solution has been posted to Client");
 			            
-			            zk.delete(path, -1, taskDeleteCallback, ctx);
+			            zk.delete("/completed/" + taskName, -1, taskDeleteCallback, ctx);
 			            
 			            //LOG.info("znode " + (String) ctx + " successfully deleted, as worker has completed it");
 	        		}
 	        	}
 	            break;
+	        case NONODE:
+	        	LOG.info("task at " + path + " has already been dealt with");
+	        	break;
 	        default:
 	            LOG.error("getChildren failed.",  
 	                    KeeperException.create(Code.get(rc), path));
@@ -1069,7 +1092,7 @@ public class Master implements Watcher, Closeable {
                 LOG.info("Successfully created " + path);
                 
                 break;
-            case NONODE:
+            case NODEEXISTS:
                 LOG.info("Answer has been created already");
                 
                 break;
@@ -1098,7 +1121,7 @@ public class Master implements Watcher, Closeable {
                 
                 break;
             case NONODE:
-                LOG.info("Task has been deleted already");
+                LOG.info("Task at " + path + " has been deleted already");
                 
                 break;
             default:
@@ -1124,8 +1147,8 @@ public class Master implements Watcher, Closeable {
     		current = tasks[i];
     		thirdSpace = tasks[i].indexOf(" ", 10) + 2;
     		lastSpace = current.lastIndexOf(" ");
-    		if(operator.equals("/") || operator.equals("-")) {
-    			values = current.substring(thirdSpace);
+    		if((operator.equals("/") || operator.equals("-"))) {
+    			values = current.substring(thirdSpace+1);
     			combinedValues += " " + values;
     			String[] valueList = values.split(" ");
     			for(String value : valueList) {

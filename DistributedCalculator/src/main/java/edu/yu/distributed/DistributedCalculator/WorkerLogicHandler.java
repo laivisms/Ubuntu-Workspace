@@ -19,9 +19,9 @@ class WorkerLogicHandler {
 	static final String VALID_VALUE = "(\\d)+";
 	;
 	
-	public static String handleRequest(String workerName, byte[] req, WorkerData data) {
+	public static String handleRequest(String workerName, String request, WorkerData data) {
 		
-		String request = new String(req);
+		
 		
 		if(request.length() < 6)
 			return BAD_REQUEST;
@@ -123,11 +123,13 @@ class WorkerLogicHandler {
 			op = operandList[i];
 			value = data.get(op);
 			opValues += " " + value;
-			if((!op.equals("/") && !op.equals("-")) || orderNumber.equals("1"))//cannot compute / or - operations (because pemdas) unless they are the first ones in the list
+			if((!operator.equals("/") && !operator.equals("-")) || orderNumber.equals("1"))//cannot compute / or - operations (because pemdas) unless they are the first ones in the list
 				solution = performOp(operator, solution, value);
 		}
-		
-		result = "calculate " + orderNumber + " " + operator + " " + opValues + " " + solution;
+		if((!operator.equals("/") && !operator.equals("-")) || orderNumber.equals("1"))
+			result = "calculate " + orderNumber + " " + operator + " " + opValues + " " + solution;
+		else
+			result = "calculate " + orderNumber + " " + operator + " " + opValues;
 		
 		return result;
 	}

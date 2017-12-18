@@ -347,16 +347,22 @@ public class Worker implements Watcher, Closeable {
                     }
                     
                     public void run() {
+                    	String task = new String(data);
+                    	int firstSpace = task.indexOf(" ");
+                    	String taskName = task.substring(0,firstSpace);
+                    	task = task.substring(firstSpace+1);
+                    	data = task.getBytes();
+                    	
                         LOG.info("Executing your task: " + new String(data));
-                        LOG.info("" + ((String) ctx));
-                        String result = (String) ctx + " " + WorkerLogicHandler.handleRequest(name, data, workerData);
+                        LOG.info("" + (taskName));
+                        String result = taskName + " " + WorkerLogicHandler.handleRequest(name, task, workerData);
                         
                         
                         if(result.contains("calculate")) 
-                        	zk.create("/completed/" + (String) ctx + "/part-", result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL, taskStatusCreateCallback, ctx);
+                        	zk.create("/completed/" + taskName + "/part-", result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT_SEQUENTIAL, taskStatusCreateCallback, ctx);
                         
                         else
-                        	zk.create("/completed/" + (String) ctx, result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, taskStatusCreateCallback, ctx);
+                        	zk.create("/completed/" + taskName, result.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, taskStatusCreateCallback, ctx);
                         
                         /*
                          * zk.create("/status/" + (String) ctx, "done".getBytes(), Ids.OPEN_ACL_UNSAFE, 
