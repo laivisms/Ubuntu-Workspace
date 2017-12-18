@@ -1,11 +1,12 @@
 package edu.yu.distributed.DistributedCalculator;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 class WorkerData {
 	
-	private HashMap<String, Integer> numbers = new HashMap<String, Integer>();
+	private HashMap<String, BigDecimal> numbers = new HashMap<String, BigDecimal>();
 	
 	private ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 	
@@ -15,9 +16,9 @@ class WorkerData {
 	 * @param key
 	 * @return the value associated with key if exists, null otherwise
 	 */
-	public Integer get(String key) {
+	public BigDecimal get(String key) {
 		
-		Integer result = null;
+		BigDecimal result = null;
 		
 		if(!numbers.containsKey(key))
 			return result;
@@ -35,7 +36,7 @@ class WorkerData {
 	}
 	
 	
-	public void put(String key, Integer value) {
+	public void put(String key, BigDecimal value) {
 		
 		lock.writeLock().lock();
 		

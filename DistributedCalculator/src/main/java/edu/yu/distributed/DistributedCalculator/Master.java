@@ -21,6 +21,8 @@ package edu.yu.distributed.DistributedCalculator;
 
 import java.io.Closeable;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -122,6 +124,8 @@ public class Master implements Watcher, Closeable {
     
     //@author Laivi Malamut-Salvaggio {
     private ThreadPoolExecutor executor;
+    
+    private Worker localBackupWorker;
     //}
     
     /**
@@ -131,7 +135,7 @@ public class Master implements Watcher, Closeable {
      */
     Master(String hostPort) { 
         this.hostPort = hostPort;
-        
+        localBackupWorker = new Worker(hostPort);
         //@author Laivi Malamut-Salvaggio {
         this.executor = new ThreadPoolExecutor(5, 10, 
                 1000L,
@@ -1138,10 +1142,11 @@ public class Master implements Watcher, Closeable {
     	
     	String combinedValues = tasks[0].substring(14, tasks[0].lastIndexOf(" ")); //initialize to first set of values
     	
-    	int combinedSolutions = Integer.parseInt(tasks[0].substring(tasks[0].lastIndexOf(" ") + 1));
+    	BigDecimal combinedSolutions = new BigDecimal(tasks[0].substring(tasks[0].lastIndexOf(" ") + 1));
     	
     	String values, current;
-    	int thirdSpace, lastSpace, solution;
+    	int thirdSpace, lastSpace;
+    	BigDecimal solution;
     	
     	for(int i=1; i<tasks.length; i++) {
     		current = tasks[i];
@@ -1152,13 +1157,13 @@ public class Master implements Watcher, Closeable {
     			combinedValues += " " + values;
     			String[] valueList = values.split(" ");
     			for(String value : valueList) {
-    				combinedSolutions = performOp(operator, combinedSolutions, Integer.parseInt(value));
+    				combinedSolutions = performOp(operator, combinedSolutions, new BigDecimal(value));
     			}
     		}
     		else {
     			values = current.substring(thirdSpace + 1, lastSpace);
     			combinedValues += " " + values;
-    			solution = Integer.parseInt(current.substring(lastSpace + 1));
+    			solution = new BigDecimal(current.substring(lastSpace + 1));
     			combinedSolutions = performOp(operator, combinedSolutions, solution);
     		}
     	}
@@ -1171,27 +1176,27 @@ public class Master implements Watcher, Closeable {
     	
     }
     
-    int performOp(String operator, int a, int b) {
-    	int solution = 0;
+    BigDecimal performOp(String operator, BigDecimal a, BigDecimal b) {
+    	BigDecimal solution = new BigDecimal(0);
 		
 		switch (operator) {
 		case("+"):
-			solution = a + b;
+			solution = a.add(b);
 			break;
 		
 		case("-"):
-			solution = a - b;
+			solution = a.subtract(b);
 			break;
 		
 		case("*"):
-			solution = a * b;
+			solution = a.multiply(b);
 			break;
 		
 		case("/"):
-			if(b==0 || a==0)
-				solution = 0;
+			if(b.doubleValue() == 0)
+				solution = new BigDecimal(0);
 			else
-				solution = a / b;
+				solution = a.divide(b,2, BigDecimal.ROUND_HALF_UP);
 			break;
 		}
 		
@@ -1222,6 +1227,7 @@ public class Master implements Watcher, Closeable {
      */
     public static void main(String args[]) throws Exception { 
         Master m = new Master(args[0]);
+        
         m.startZK();
         
         while(!m.isConnected()){

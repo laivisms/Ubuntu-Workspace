@@ -1,5 +1,7 @@
 package edu.yu.distributed.DistributedCalculator;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
@@ -46,7 +48,7 @@ class WorkerLogicHandler {
 			int firstSpace = request.indexOf(' ');
 			int lastSpace = request.lastIndexOf(' ');
 			String key = request.substring(firstSpace + 1, lastSpace);
-			Integer value = Integer.parseInt(request.substring(lastSpace+1));
+			BigDecimal value = new BigDecimal(request.substring(lastSpace+1));
 			data.put(key, value);
 			result = request + " " + String.valueOf(value);
 			
@@ -59,7 +61,7 @@ class WorkerLogicHandler {
 	private static String handleGet(String workerName, String request, WorkerData data) {
 		String result = null;
 		String key = null;
-		Integer value = null;
+		BigDecimal value = null;
 		
 		if(!Pattern.matches(RETRIEVE + "\\s" + VALID_TEXT, request))
 			result = BAD_REQUEST;
@@ -82,7 +84,7 @@ class WorkerLogicHandler {
 	private static String handleDelete(String workerName, String request, WorkerData data) {
 		String result = null;
 		String key = null;
-		Integer value = null;
+		BigDecimal value = null;
 		
 		if(!Pattern.matches(DELETE + "\\s" + VALID_TEXT, request))
 			result = BAD_REQUEST;
@@ -114,9 +116,9 @@ class WorkerLogicHandler {
 		
 		String opValues = data.get(operandList[0]) + "";
 		
-		int solution = data.get(operandList[0]);
+		BigDecimal solution = data.get(operandList[0]);
 		
-		int value;
+		BigDecimal value;
 		String op;
 		
 		for(int i=1; i<operandList.length; i++) {
@@ -134,27 +136,27 @@ class WorkerLogicHandler {
 		return result;
 	}
 	
-	private static int performOp(String operator, int a, int b) {
-		int solution = 0;
+	private static BigDecimal performOp(String operator, BigDecimal a, BigDecimal b) {
+		BigDecimal solution = new BigDecimal(0);
 		
 		switch (operator) {
 		case("+"):
-			solution = a + b;
+			solution = a.add(b);
 			break;
 		
 		case("-"):
-			solution = a - b;
+			solution = a.subtract(b);
 			break;
 		
 		case("*"):
-			solution = a * b;
+			solution = a.multiply(b);
 			break;
 		
 		case("/"):
-			if(b==0 || a==0)
-				solution = 0;
+			if(b.doubleValue() == 0)
+				solution = new BigDecimal(0);
 			else
-				solution = a / b;
+				solution = a.divide(b,2, BigDecimal.ROUND_HALF_UP);
 			break;
 		}
 		
