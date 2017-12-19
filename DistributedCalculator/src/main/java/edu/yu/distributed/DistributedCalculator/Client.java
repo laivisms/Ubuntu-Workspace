@@ -18,8 +18,11 @@
 
 package edu.yu.distributed.DistributedCalculator;
 
+import java.io.BufferedReader;
 import java.io.Closeable;
+import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -310,24 +313,61 @@ public class Client implements Watcher, Closeable {
         
         while(!c.isConnected()){
             Thread.sleep(100);
-        }   	
+        }
         
-        TaskObject task1 = new TaskObject();
-        TaskObject task2 = new TaskObject();
-        TaskObject task3 = new TaskObject();
-        TaskObject task4 = new TaskObject();
-        TaskObject task5 = new TaskObject();
-        TaskObject task6 = new TaskObject();
-        
-        c.submitTask("insert two 2", task1);
-        c.submitTask("insert three 3", task2);
-        c.submitTask("insert four 4", task3);
-        c.submitTask("insert five 5", task4);
-        c.submitTask("insert six 6", task5);
-        Thread.sleep(100);
-        c.submitTask("calculate / five two three", task6);
-        
-        Thread.sleep(100);
+        if(args.length >1) {
+        	String filePath = args[1];
+        	FileReader fr = new FileReader(filePath);
+        	BufferedReader br = new BufferedReader(fr);
+        	
+        	String current;
+        	
+        	ArrayList<TaskObject> tasks = new ArrayList<TaskObject>();
+        	
+        	while((current = br.readLine()) != null) {
+        		if(current.length() != 0) {
+        			TaskObject tempTask = new TaskObject();
+        			c.submitTask(current, tempTask);
+        			if(current.startsWith("calculate"))
+        				tasks.add(tempTask);
+        			else
+        				tempTask.waitUntilDone();
+        		}
+        	}
+        	
+        	for(TaskObject task : tasks) {
+        		task.waitUntilDone();
+        	}
+        }
+        else {
+	        TaskObject task1 = new TaskObject();
+	        TaskObject task2 = new TaskObject();
+	        TaskObject task3 = new TaskObject();
+	        TaskObject task4 = new TaskObject();
+	        TaskObject task5 = new TaskObject();
+	        TaskObject task6 = new TaskObject();
+	        TaskObject task7 = new TaskObject();
+	        
+	        c.submitTask("insert two 2", task1);
+	        task1.waitUntilDone();
+	        c.submitTask("insert three 3", task2);
+	        task2.waitUntilDone();
+	        c.submitTask("insert four 4", task3);
+	        task3.waitUntilDone();
+	        c.submitTask("insert five 5", task4);
+	        task4.waitUntilDone();
+	        c.submitTask("insert six 6", task5);
+	        task5.waitUntilDone();
+	        Thread.sleep(100);
+	        c.submitTask("calculate / five two three", task6);
+	       
+	        c.submitTask("calculate + two three", task7);
+	        task6.waitUntilDone();
+	        task7.waitUntilDone();
+	        
+	        
+	        Thread.sleep(100);
+        }
     }
 
 }

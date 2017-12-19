@@ -12,7 +12,7 @@ class WorkerLogicHandler {
 	private static final Logger LOG = LoggerFactory.getLogger(Worker.class);
 	
 	static final String BAD_REQUEST = "Error: Request incorrectly formatted.";
-	static final String KEY_NOT_EXIST = "Error: the specified key does not exist";
+	static final String KEY_NOT_EXIST = "Error: the specified key does not exist 0";
 	static final String INSERT = "insert";
 	static final String RETRIEVE = "retrieve";
 	static final String DELETE = "delete";
@@ -44,15 +44,15 @@ class WorkerLogicHandler {
 	
 	private static String handlePut(String workerName, String request, WorkerData data) {
 		String result = null;
-	
-			int firstSpace = request.indexOf(' ');
-			int lastSpace = request.lastIndexOf(' ');
-			String key = request.substring(firstSpace + 1, lastSpace);
-			BigDecimal value = new BigDecimal(request.substring(lastSpace+1));
-			data.put(key, value);
-			result = request + " " + String.valueOf(value);
+		
+		int firstSpace = request.indexOf(' ');
+		int lastSpace = request.lastIndexOf(' ');
+		String key = request.substring(firstSpace + 1, lastSpace);
+		BigDecimal value = new BigDecimal(request.substring(lastSpace+1));
+		data.put(key, value);
+		result = request + " " + String.valueOf(value);
 			
-			LOG.info("Worker " + workerName + " now contains " + value + " under key: " + key);
+		LOG.info("Worker " + workerName + " now contains " + value + " under key: " + key);
 		
 		 
 		return result;
@@ -63,18 +63,17 @@ class WorkerLogicHandler {
 		String key = null;
 		BigDecimal value = null;
 		
-		if(!Pattern.matches(RETRIEVE + "\\s" + VALID_TEXT, request))
-			result = BAD_REQUEST;
+		
+		
+		int space = request.indexOf(" ");
+		key = request.substring(space+1);
+		if(!data.contains(key))
+			result = KEY_NOT_EXIST;
 		else {
-			int space = request.indexOf(" ");
-			key = request.substring(space+1);
-			if(!data.contains(key))
-				result = KEY_NOT_EXIST;
-			else {
-				value = data.get(key);
-				result = request + " " + String.valueOf(value);
-			}
+			value = data.get(key);
+			result = request + " " + String.valueOf(value);
 		}
+		
 		
 		LOG.info("Worker " + workerName + " has accessed key " + key + " containing value: " + value);
 		
@@ -84,19 +83,18 @@ class WorkerLogicHandler {
 	private static String handleDelete(String workerName, String request, WorkerData data) {
 		String result = null;
 		String key = null;
-		BigDecimal value = null;
+		BigDecimal value = new BigDecimal(0);
 		
-		if(!Pattern.matches(DELETE + "\\s" + VALID_TEXT, request))
-			result = BAD_REQUEST;
-		else {
+		
 			int space = request.indexOf(" ");
 			key = request.substring(space+1);
 			
-			if(data.contains(key))
+			if(data.contains(key)) {
 				value = data.get(key);
 				data.remove(key);
+			}
 			result = request + " " + String.valueOf(value);
-		}
+		
 		
 		LOG.info("Worker " + workerName + " has deleted key " + key + " containing value: " + value);
 		
@@ -118,12 +116,19 @@ class WorkerLogicHandler {
 		
 		BigDecimal solution = data.get(operandList[0]);
 		
+		if(solution == null) {
+			return "calculate " + orderNumber + " ERROR: provided key does not exist";
+		}
+		
 		BigDecimal value;
 		String op;
 		
 		for(int i=1; i<operandList.length; i++) {
 			op = operandList[i];
 			value = data.get(op);
+			if(value == null) {
+				return "calculate " + orderNumber + " ERROR: provided key does not exist";
+			}
 			opValues += " " + value;
 			if((!operator.equals("/") && !operator.equals("-")) || orderNumber.equals("1"))//cannot compute / or - operations (because pemdas) unless they are the first ones in the list
 				solution = performOp(operator, solution, value);

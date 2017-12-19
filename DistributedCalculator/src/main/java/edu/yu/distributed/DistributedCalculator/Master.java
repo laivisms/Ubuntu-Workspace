@@ -736,24 +736,11 @@ public class Master implements Watcher, Closeable {
     
     void assignTasks(List<String> tasks) {
         for(String task : tasks){
-        	//@author Laivi MS { // implementing multithreading
+        	
        	 
         	
         	getTaskData(task);
-        	/*executor.execute(new Runnable() {
-        		String task;
-        		
-        		public Runnable init (String task) {
-        			this.task = task;
-        			return this;
-        		}
-        		
-        		public void run() {
-        			getTaskData(task);
-        		}
-        	}.init(task));*/
         	
-            //}
         }
     }
 
@@ -827,8 +814,15 @@ public class Master implements Watcher, Closeable {
     		secondSpace = request.lastIndexOf(" ");
     		key = request.substring(firstSpace+1, secondSpace);
     		
-    		designatedWorker = list.get(random.nextInt(list.size()));
-    		workersCache.associate(key, designatedWorker);
+    		
+    		
+    		
+    		if(workersCache.getWorker(key) != null)
+    			designatedWorker = workersCache.getWorker(key);
+    		else {
+    			designatedWorker = list.get(random.nextInt(list.size()));
+    			workersCache.associate(key, designatedWorker);
+    		}
     		
     		assignmentPath = "/assign/" + 
                     designatedWorker + 
@@ -893,10 +887,8 @@ public class Master implements Watcher, Closeable {
     		
     		tasksCache.associateTask((String) ctx, request, currentL + 1);//create an association from the task name to an object which will hold solutions until they are ready to be combined
     		
-    		//this zookeeper access initiallizes the folder in the completed folder into which this assignment will store its multiple parts.
-    		//usually this will be created when the assignment is completed, but since calculate requests require multiple parts, it is better to
-    		//create the parent of the folder into which we will create the parts later, to avoid confusion.
-    		zk.create("/completed/" + (String) ctx, "parts".getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, taskCreateCallback, null);//create the node to store eventual answers to parts
+    		
+    		createInitialFolder("/completed/" + (String) ctx, "parts".getBytes());//create the node to store eventual answers to parts
 			
     		
     		String assignmentData;
@@ -913,6 +905,8 @@ public class Master implements Watcher, Closeable {
     			LOG.info("partial calculation " + assignmentData + " has been assigned to worker " + designatedWorker);
     			counter++;
     		}
+    		
+    		deleteTask((String) ctx);
     			
     		
     		
@@ -925,6 +919,32 @@ public class Master implements Watcher, Closeable {
     	}
     }
     
+    void createInitialFolder(String path, byte[] data) {
+    	//this zookeeper access initiallizes the folder in the completed folder into which this assignment will store its multiple parts.
+		//usually this will be created when the assignment is completed, but since calculate requests require multiple parts, it is better to
+		//create the parent of the folder into which we will create the parts later, to avoid confusion.
+    	zk.create(path, data, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, createInitialCallback, data);
+    }
+    
+    StringCallback createInitialCallback = new StringCallback() {
+
+		@Override
+		public void processResult(int rc, String path, Object ctx, String name) {
+			switch(Code.get(rc)) {
+			case CONNECTIONLOSS:
+				createInitialFolder(path, (byte[]) ctx);
+				break;
+			case OK:
+				LOG.info("successfully created storage node for completed parts: " + path);
+				break;
+			default:
+				LOG.info("Node parts folder already created");
+			}
+
+		}
+    	
+    };
+    
     void createAssignment(String path, byte[] data){
     	//Does what is says: creates an "assignment", or a node in a workers assignemnet folder, containing a task for the worker to perform
         zk.create(path, 
@@ -933,6 +953,7 @@ public class Master implements Watcher, Closeable {
                 CreateMode.PERSISTENT,
                 assignTaskCallback, 
                 data);
+       
     }
     
     StringCallback assignTaskCallback = new StringCallback() {
@@ -945,8 +966,10 @@ public class Master implements Watcher, Closeable {
             case OK:
                 LOG.info("Task assigned correctly: " + name);
                 
-                deleteTask(name.substring( name.lastIndexOf("/") + 1));
-                
+                if(!(new String((byte[]) ctx)).startsWith("calculate"))
+                	
+                	deleteTask(name.substring( name.lastIndexOf("/") + 1)); //need to edit this for tasks that are split up
+               
                 
 
                 
@@ -981,6 +1004,7 @@ public class Master implements Watcher, Closeable {
     };
     
     void getResultChildren(String path) {
+    	//this zk access gets the completed tasks from the workers to be processed. These could be partial tasks which need to be combined into a total task later on
     	zk.getChildren(path, taskResultWatcher, resultChildrenCallback, null);
     }
     
@@ -1013,6 +1037,7 @@ public class Master implements Watcher, Closeable {
     };
     
     void returnResult(String path, String task) {
+    	//this zk access gets the result data from tasks completed by the workers
     	zk.getData(path, false, resultCallback, task);;
     }
     
@@ -1034,10 +1059,14 @@ public class Master implements Watcher, Closeable {
 		        		completedAllParts = false;
 	        			LOG.info("Part of calculate request completed");
 		        		String taskName = result.substring(0, firstSpace);
-		        		int secondSpace = result.indexOf(" ", firstSpace+1);
+		        		
 		        		LOG.info("Partial solution " + result + " has been completed");
 		        		completedAllParts = tasksCache.addCaclulationPart(taskName, result.substring(firstSpace+1));
-		        		zk.delete(path, -1, taskDeleteCallback, ctx);
+		        		
+		        		
+		        		deleteFulfilledRequest(path, taskName);
+		        		
+		        		
 		        		if(completedAllParts) {
 		        			result = processCompletedCalculate(taskName);
 		        			
@@ -1046,30 +1075,33 @@ public class Master implements Watcher, Closeable {
 	        		}
 	        	
 	        		
-	        		if(completedAllParts) {//this is a full answer, ie, resulting from a put, get, delete, or already combined parts)
-			            int lastSpace = result.lastIndexOf(" ");
-			            String taskName = result.substring(0, firstSpace);
-			            String task = result.substring(firstSpace+1, lastSpace);
-			            String solution = result.substring(lastSpace+1);
-			            
-			            
-			            LOG.info("Task " + task  + " has been resolved. Solution: " + solution);
-			            
-			            
-			            String solutionPath = "/status/" + taskName;
-			            
-			           
-			            	
-						
-						zk.create(solutionPath, solution.getBytes(), Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, taskCreateCallback, ctx);
+	        		if(completedAllParts) {//this is a full answer, ie, resulting from a put, get, delete, or already combined parts
+				        int lastSpace = result.lastIndexOf(" ");
+				        String taskName = result.substring(0, firstSpace);
+				        String task = result.substring(firstSpace+1, lastSpace);
+				        if(result.toLowerCase().contains("error")) {
+				            	LOG.info("Task " + taskName + " has encountered an error: " + result.substring(firstSpace+1));
+				            	createPostToClient("/status/" + taskName, result.substring(firstSpace+1).getBytes());
+				            	deleteFulfilledRequest("/completed/" + taskName, taskName);
+				        }
+				        else {
+				        	
+				            String solution = result.substring(lastSpace+1);
+				            
+				            
+				            LOG.info("Task " + task  + " has been resolved. Solution: " + task + ". Result: " + solution);
+				            
+				
+							createPostToClient("/status/" + taskName, (task +  ". Result: " + solution).getBytes());
+								
 							
-						
-			            
-			            LOG.info("Task " + task + " solution has been posted to Client");
-			            
-			            zk.delete("/completed/" + taskName, -1, taskDeleteCallback, ctx);
-			            
-			            //LOG.info("znode " + (String) ctx + " successfully deleted, as worker has completed it");
+				            
+				            LOG.info("Task " + task + " solution has been posted to Client");
+				            
+				            deleteFulfilledRequest("/completed/" + taskName, taskName);
+				            
+				            //LOG.info("znode " + (String) ctx + " successfully deleted, as worker has completed it");
+	        			}
 	        		}
 	        	}
 	            break;
@@ -1083,13 +1115,41 @@ public class Master implements Watcher, Closeable {
 		}
     };
     
+    void deleteFulfilledRequest(String path, String taskName) {
+    	zk.delete(path, -1, deleteFulfilledCallback, taskName);
+    }
+    
+    VoidCallback deleteFulfilledCallback = new VoidCallback() {
+
+		@Override
+		public void processResult(int rc, String path, Object ctx) {
+			switch(Code.get(rc)) {
+			case CONNECTIONLOSS:
+				deleteFulfilledRequest(path, (String) ctx);
+				break;
+			case OK:
+				LOG.info("successfully deleted completed task: " + (String) ctx);
+				break;
+			default:
+				LOG.info("Node " + (String) ctx + " has already been deleted");
+			
+			}
+			
+		}
+    	
+    };
+    
+    void createPostToClient(String path, byte[] data) {
+    	zk.create(path, data, Ids.OPEN_ACL_UNSAFE, CreateMode.PERSISTENT, taskCreateCallback, data);
+    }
+    
     StringCallback taskCreateCallback = new StringCallback() {
 
 		@Override
 		public void processResult(int rc, String path, Object ctx, String name) {
 			switch (Code.get(rc)) {
             case CONNECTIONLOSS:
-                deleteTask(path);
+               createPostToClient(path, (byte[]) ctx);
                 
                 break;
             case OK:
@@ -1137,6 +1197,9 @@ public class Master implements Watcher, Closeable {
     
     String processCompletedCalculate(String taskName) {
     	String[] tasks = tasksCache.getCalculationParts(taskName);
+    	if(tasks[0].toLowerCase().contains("error")) {
+    		return taskName + " " + tasks[0];
+    	}
     	
     	String operator = tasks[0].substring(12, 13);
     	
@@ -1146,10 +1209,16 @@ public class Master implements Watcher, Closeable {
     	
     	String values, current;
     	int thirdSpace, lastSpace;
-    	BigDecimal solution;
+    	BigDecimal solution = new BigDecimal(0);
     	
     	for(int i=1; i<tasks.length; i++) {
     		current = tasks[i];
+    		
+    		
+    		if(current.toLowerCase().contains("error"))//there was an error in one of the parts, return just an error message
+    			return taskName + " " + current;
+    		
+    		
     		thirdSpace = tasks[i].indexOf(" ", 10) + 2;
     		lastSpace = current.lastIndexOf(" ");
     		if((operator.equals("/") || operator.equals("-"))) {
@@ -1163,12 +1232,16 @@ public class Master implements Watcher, Closeable {
     		else {
     			values = current.substring(thirdSpace + 1, lastSpace);
     			combinedValues += " " + values;
+
+    			
     			solution = new BigDecimal(current.substring(lastSpace + 1));
+    			
+    			
     			combinedSolutions = performOp(operator, combinedSolutions, solution);
     		}
     	}
     	
-    	String requestTotal = taskName + " calculate " + operator + " " + combinedValues + " " + combinedSolutions; 
+    	String requestTotal = taskName + " calculate " + operator + " " + combinedValues  + " " +  combinedSolutions; 
     	
     	return requestTotal;
     	
@@ -1250,5 +1323,6 @@ public class Master implements Watcher, Closeable {
         }   
 
         m.stopZK();
+        m.close();
     }
 }
